@@ -27,13 +27,15 @@ class EdgeGraspPlanner(GraspPlannerModule[o3d.geometry.PointCloud]):
     https://haojhuang.github.io/edge_grasp_page/
     """
 
-    def __init__(self, model, device="cuda", sample_number=32, confidence_th=0.85, return_best_score=False) -> None:
+    def __init__(self, model, device="cuda", sample_number=32, confidence_th=0.85, return_best_score=False, z_threshold=0.054, max_n_grasps=32) -> None:
         super().__init__()
         self.device = device
         self.sample_number = sample_number
         self.grasper = model
         self.confidence_th = confidence_th
         self.return_best_score = return_best_score
+        self.z_threshold = z_threshold
+        self.max_n_grasps = max_n_grasps
 
     def forward(self, observation_cb: Callable[[Timer | None], o3d.geometry.PointCloud | None], timer: Timer):
         with timer["preprocess"]:
@@ -97,7 +99,7 @@ class EdgeGraspPlanner(GraspPlannerModule[o3d.geometry.PointCloud]):
                 des_normals,
                 sample_pos,
             )
-            table_grasp_mask = get_gripper_points_mask(pose_candidates, threshold=0.054)
+            table_grasp_mask = get_gripper_points_mask(pose_candidates, threshold=self.z_threshold)
             geometry_mask[geometry_mask.clone()] = table_grasp_mask
             # wether fps
             edge_sample_index = all_edge_index[geometry_mask]
@@ -130,7 +132,7 @@ class EdgeGraspPlanner(GraspPlannerModule[o3d.geometry.PointCloud]):
                     ) = self.grasper.model.act(data)
 
                 with timer["postprocess"]:
-                    n_grasps = 1 if self.return_best_score else min(64, len(score))
+                    n_grasps = 1 if self.return_best_score else min(self.max_n_grasps, len(score))
                     k_score, max_indice = torch.topk(score, k=n_grasps)
                     max_score = score[max_indice]
                     max_score = F.sigmoid(max_score).cpu().numpy()
@@ -150,5 +152,5 @@ class EdgeGraspPlanner(GraspPlannerModule[o3d.geometry.PointCloud]):
                     )
                     trans_matrix = trans_matrix.cpu().numpy()
 
-                return (trans_matrix, None)
+                return (trans_matrix, max_score)
             return None
