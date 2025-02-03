@@ -99,7 +99,7 @@ class EdgeGraspPlanner(GraspPlannerModule[o3d.geometry.PointCloud]):
                 des_normals,
                 sample_pos,
             )
-            table_grasp_mask = get_gripper_points_mask(pose_candidates, threshold=self.z_threshold)
+            table_grasp_mask = get_gripper_points_mask(pose_candidates, self.z_threshold, pc)
             geometry_mask[geometry_mask.clone()] = table_grasp_mask
             # wether fps
             edge_sample_index = all_edge_index[geometry_mask]
