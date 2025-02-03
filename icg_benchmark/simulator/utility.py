@@ -705,8 +705,8 @@ def get_gripper_points_mask(trans, threshold=0.053, pc: o3d.geometry.PointCloud 
     #vis.run()
     
     print("grasps in collision:",collisions.sum().item())
-    print("grasps in collision5:",torch.tensor(collisions_5).sum().item())
-    print("grasps in collision6:",torch.tensor(collisions_6).sum().item())
+    #print("grasps in collision5:",torch.tensor(collisions_5).sum().item())
+    #print("grasps in collision6:",torch.tensor(collisions_6).sum().item())
     print("grasps in z_mask:",z_mask.sum().item())
     print("z_mask:",z_mask.is_cuda)
     print("collisions:",collisions.is_cuda)
