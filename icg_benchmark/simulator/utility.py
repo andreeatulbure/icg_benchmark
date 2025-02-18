@@ -2,7 +2,7 @@ import numpy as np
 import open3d as o3d
 import torch
 import torch.nn.functional as F
-
+import trimesh.transformations as tra
 
 def downsample_points(pts, K):
     # if num_pts > 2K use farthest sampling
@@ -629,6 +629,82 @@ def get_gripper_points(trans):
     # print(trans[:,:3,-1].unsqueeze(dim=1).repeat(1,5,1))
     return gripper_points_sim
 
+def draw_gripper(
+    grasp,
+    color=(
+        0.2,
+        0.8,
+        0),
+        is_franka=True):
+    """
+    Open3D Visualization of parallel-jaw grasp
+
+    grasp: [4, 4] np array
+    """
+
+    meshes = []
+    align = tra.euler_matrix(np.pi / 2, 0, 0)
+
+    # Cylinder 3,5,6
+    cylinder_1 = o3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.139)
+    transform = np.eye(4)
+    if is_franka:
+        transform[1, 3] = -0.03
+    else:
+        transform[0, 3] = -0.03
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp.T, transform)
+    cylinder_1.paint_uniform_color(color)
+    cylinder_1.transform(transform)
+
+    # Cylinder 1 and 2
+    cylinder_2 = o3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.07)
+    transform = tra.euler_matrix(np.pi / 2, 0, 0)
+    if is_franka:
+        transform[1, 3] = -0.065
+    else:
+        transform[0, 3] = -0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp.T, transform)
+    cylinder_2.paint_uniform_color(color)
+    cylinder_2.transform(transform)
+
+    # Cylinder 5,4
+    cylinder_3 = o3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.06)
+    transform = tra.euler_matrix(np.pi / 2, 0, 0)
+    transform[2, 3] = 0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp.T, transform)
+    cylinder_3.paint_uniform_color(color)
+    cylinder_3.transform(transform)
+
+    # Cylinder 6, 7
+    cylinder_4 = o3d.geometry.TriangleMesh.create_cylinder(
+        radius=0.005, height=0.06)
+    transform = tra.euler_matrix( np.pi / 2, 0,0)
+    transform[2, 3] = -0.065
+    transform = np.matmul(align, transform)
+    transform = np.matmul(grasp.T, transform)
+    cylinder_4.paint_uniform_color(color)
+    cylinder_4.transform(transform)
+
+    
+    cylinder_1.compute_vertex_normals()
+    cylinder_2.compute_vertex_normals()
+    cylinder_3.compute_vertex_normals()
+    cylinder_4.compute_vertex_normals()
+
+    meshes.append(cylinder_1)
+    meshes.append(cylinder_2)
+    meshes.append(cylinder_3)
+    meshes.append(cylinder_4)
+
+    return meshes
+
+
 
 def get_gripper_points_mask(trans, threshold=0.053, pc: o3d.geometry.PointCloud = None):
     gripper_points_sim = get_gripper_points(trans)
@@ -663,23 +739,30 @@ def get_gripper_points_mask(trans, threshold=0.053, pc: o3d.geometry.PointCloud 
             _, idx, _ = pcd_tree.search_radius_vector_3d(point.cpu().numpy(), 0.02)
             collisions_6.append(len(idx)>0)
 
-    #vis = o3d.visualization.Visualizer()
-    #vis.create_window(window_name="check pc")
-    #color = (0.2, 0.8, 0)
-    #pc.paint_uniform_color(color)
-    #vis.add_geometry(pc)
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(window_name="check pc")
+    color = (1, 0.70, 0)
+    pc.paint_uniform_color(color)
+    vis.add_geometry(pc)
     
-
-
     #unique_idx = np.unique(np.array(collisions), axis=0)
     collisions = torch.tensor(collisions_5,device="cuda") | torch.tensor(collisions_6,device="cuda")
+    print("grasps in collision:",collisions.sum().item())
+    print("grasps in z_mask:",z_mask.sum().item())
+    z_mask |= collisions
+    print("grasps in z_mask after:",z_mask.sum().item())
+    
     #collisions_int  = collisions.int()
     #idx = torch.argmax(collisions_int, dim=-1)
     #print("idx",idx)
+
+    for g in trans[z_mask]:
+        mesh_g = draw_gripper(g)
+        vis.add_geometry(mesh_g)
+
     #grasp_pc_o3d = o3d.geometry.PointCloud()
-    #grasp_pc_o3d.points = o3d.utility.Vector3dVector(gripper_points_sim[idx, :,:].cpu().numpy()) 
+    #grasp_pc_o3d.points = o3d.utility.Vector3dVector(gripper_points_sim[unique_idx, :,:].cpu().numpy()) 
     #grasp_pc_o3d.paint_uniform_color([0, 0, 1])
-    
     #vis.add_geometry(grasp_pc_o3d)
    
     #mesh_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.05)
@@ -701,16 +784,8 @@ def get_gripper_points_mask(trans, threshold=0.053, pc: o3d.geometry.PointCloud 
 
     #vis.add_geometry(mesh_sphere)
     #vis.add_geometry(mesh_sphere2)
-
-    #vis.run()
+    vis.run()
     
-    print("grasps in collision:",collisions.sum().item())
-    #print("grasps in collision5:",torch.tensor(collisions_5).sum().item())
-    #print("grasps in collision6:",torch.tensor(collisions_6).sum().item())
-    print("grasps in z_mask:",z_mask.sum().item())
-    print("z_mask:",z_mask.is_cuda)
-    print("collisions:",collisions.is_cuda)
-    z_mask |= collisions
-    print("grasps in z_mask after:",z_mask.sum().item())
+
     return z_mask
 
