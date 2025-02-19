@@ -15,7 +15,7 @@ from torch_geometric.data import Data
 from torch_geometric.nn import radius
 
 from icg_benchmark.simulator.io_smi import *
-from icg_benchmark.simulator.utility import FarthestSamplerTorch, get_gripper_points_mask, orthognal_grasps
+from icg_benchmark.simulator.utility import FarthestSamplerTorch, get_gripper_points_mask, orthognal_grasps, filter_collisions
 from icg_benchmark.utils.timing.timer import Timer
 
 from .base import GraspPlannerModule
@@ -99,7 +99,7 @@ class EdgeGraspPlanner(GraspPlannerModule[o3d.geometry.PointCloud]):
                 des_normals,
                 sample_pos,
             )
-            table_grasp_mask = get_gripper_points_mask(pose_candidates, self.z_threshold, pc)
+            table_grasp_mask = get_gripper_points_mask(pose_candidates, self.z_threshold)
             geometry_mask[geometry_mask.clone()] = table_grasp_mask
             # wether fps
             edge_sample_index = all_edge_index[geometry_mask]
@@ -151,6 +151,11 @@ class EdgeGraspPlanner(GraspPlannerModule[o3d.geometry.PointCloud]):
                         sample_pos,
                     )
                     trans_matrix = trans_matrix.cpu().numpy()
+                    
+                    # filter collisions
+                    collision_idx = filter_collisions(trans_matrix, pc)
+                    filetered_matrix = trans_matrix[~collision_idx]
+                    filtered_scores = max_score[~collision_idx]
 
-                return (trans_matrix, max_score)
+                return (filetered_matrix, filtered_scores)
             return None
