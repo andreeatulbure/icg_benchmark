@@ -566,53 +566,70 @@ def get_geometry_mask_for_edge(
     return geometry_mask
 
 
-def get_gripper_points(trans, is_cuda=True):
-    if is_cuda:
-        gripper_points_sim = (
-            torch.tensor(
+def get_gripper_points(trans):
+
+    gripper_points_sim = (
+        torch.tensor(
+            [
                 [
-                    [
-                        0,
-                        0,
-                        -0.02,
-                    ],
-                    [
-                        0.012,
-                        -0.09,
-                        0.015,
-                    ],
-                    [
-                        -0.012,
-                        -0.09,
-                        0.015,
-                    ],
-                    [
-                        0.012,
-                        0.09,
-                        0.015,
-                    ],
-                    [
-                        -0.012,
-                        0.09,
-                        0.015,
-                    ],
-                    [
-                        0.005,
-                        0.09,
-                        0.078,
-                    ],
-                    [
-                        0.005,
-                        -0.09,
-                        0.078,
-                    ],
-                ]
-            )
-            .to(torch.float)
-            .to(trans.device)
+                    0,
+                    0,
+                    -0.02,
+                ],
+                [
+                    0.012,
+                    -0.09,
+                    0.015,
+                ],
+                [
+                    -0.012,
+                    -0.09,
+                    0.015,
+                ],
+                [
+                    0.012,
+                    0.09,
+                    0.015,
+                ],
+                [
+                    -0.012,
+                    0.09,
+                    0.015,
+                ],
+                [
+                    0.005,
+                    0.09,
+                    0.078,
+                ],
+                [
+                    0.005,
+                    -0.09,
+                    0.078,
+                ],
+            ]
         )
-    else:
-        gripper_points_sim = (
+        .to(torch.float)
+        .to(trans.device)
+    )
+    
+    # gripper_points_sim = torch.tensor([[0, 0, -0.02, ],
+    #                                    [0.01, -0.1, 0.02, ],
+    #                                    [-0.01, -0.1, 0.02, ],
+    #                                    [0.01, 0.1, 0.02, ],
+    #                                    [-0.01, 0.1, 0.02, ],
+    #
+    #                                    [0, 0.1, 0.08, ],
+    #                                    [0, -0.1, 0.08, ]]).to(torch.float)
+    num_p = gripper_points_sim.size(0)
+    gripper_points_sim = gripper_points_sim.unsqueeze(dim=0).repeat(len(trans), 1, 1)
+    gripper_points_sim = torch.einsum("pij,pjk->pik", trans[:, :3, :3], gripper_points_sim.transpose(1, 2))
+    gripper_points_sim = gripper_points_sim.transpose(1, 2)
+    gripper_points_sim = gripper_points_sim + trans[:, :3, -1].unsqueeze(dim=1).repeat(1, num_p, 1)
+    return gripper_points_sim
+
+
+def get_gripper_points_collisions(trans):
+    gripper_points_sim = (
             torch.tensor(
                 [
                     [
@@ -622,33 +639,33 @@ def get_gripper_points(trans, is_cuda=True):
                     ],
                     [
                         0.012,
-                        -0.09,
+                        -0.06,
                         0.015,
                     ],
                     [
                         -0.012,
-                        -0.09,
+                        -0.06,
                         0.015,
                     ],
                     [
                         0.012,
-                        0.09,
+                        0.06,
                         0.015,
                     ],
                     [
                         -0.012,
-                        0.09,
+                        0.06,
                         0.015,
                     ],
                     [
                         0.005,
-                        0.09,
-                        0.078+0.05,
+                        0.06,
+                        0.078+0.02,
                     ],
                     [
                         0.005,
-                        -0.09,
-                        0.078+0.05,
+                        -0.06,
+                        0.078+0.02,
                     ],
                 ]
             ).to(torch.float)
@@ -705,7 +722,7 @@ def get_gripper_points_mask(trans, threshold=0.053):
 def filter_collisions(trans,pc=None):
     # check if collisions with the point cloud
     trans_tensor = torch.from_numpy(trans)
-    gripper_points_sim = get_gripper_points(trans_tensor, False)
+    gripper_points_sim = get_gripper_points_collisions(trans_tensor)
     print("gripper_points_sim",gripper_points_sim[:, 5, :3].shape)
     print("trans",trans.shape)
     print("trans[:, :3, :3]",trans[:, :3, :3].shape)
@@ -737,16 +754,16 @@ def filter_collisions(trans,pc=None):
             _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.02)
             collisions_4.append(len(idx)>0)                                    
         for point in gripper_points_sim[:,5]:
-            _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.03)
+            _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.02)
             collisions_5.append(len(idx)>0)
         for point in gripper_points_sim[:,6]:
-            _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.03)
+            _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.02)
             collisions_6.append(len(idx)>0)
         for point in gripper_points_sim_aux16:
-            _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.03)
+            _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.02)
             collisions_aux_16.append(len(idx)>0)            
         for point in gripper_points_sim_aux35:
-            _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.03)
+            _, idx, _ = pcd_tree.search_radius_vector_3d(point, 0.02)
             collisions_aux_35.append(len(idx)>0)            
     collisions = np.asarray(collisions_5) | np.asarray(collisions_6) | np.asarray(collisions_aux_16) | np.asarray(collisions_aux_35) | np.asarray(collisions_3) | np.asarray(collisions_4)
     print("grasps in collision:",collisions.sum().item())
@@ -761,18 +778,8 @@ def filter_collisions(trans,pc=None):
     #print("trans_filtered",trans_filtered.shape)
     #gripper_points_filtered = gripper_points_sim[~collisions]
     #for g in gripper_points_filtered:
-    #    lines_g = draw_gripper(g.cpu().numpy())
-        #mesh_spere2 = o3d.geometry.TriangleMesh.create_sphere(radius=0.03)
-        #mesh_spere1 = o3d.geometry.TriangleMesh.create_sphere(radius=0.03)
-        #mesh_spere2.paint_uniform_color([1, 0, 0,-5.])
-        #mesh_spere1.paint_uniform_color([1, 0, 0])
-        #mesh_spere2.translate(g[5])
-        #mesh_spere1.translate(g[6])
-        #mesh_spere2.compute_vertex_normals()
-        #mesh_spere1.compute_vertex_normals()
+        #lines_g = draw_gripper(g.cpu().numpy())
         #vis.add_geometry(lines_g)
-        #vis.add_geometry(mesh_spere2)
-        #vis.add_geometry(mesh_spere1)
     #vis.run()
     
     return collisions
