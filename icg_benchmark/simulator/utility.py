@@ -635,37 +635,37 @@ def get_gripper_points_collisions(trans):
                     [
                         0,
                         0,
-                        -0.02,
+                        +0.04-0.02,
                     ],
                     [
                         0.012,
                         -0.06,
-                        0.015,
+                        0.015+0.04,
                     ],
                     [
                         -0.012,
                         -0.06,
-                        0.015,
+                        0.015+0.04,
                     ],
                     [
                         0.012,
                         0.06,
-                        0.015,
+                        0.015+0.04,
                     ],
                     [
                         -0.012,
                         0.06,
-                        0.015,
+                        0.015+0.04,
                     ],
                     [
                         0.005,
                         0.06,
-                        0.078+0.02,
+                        0.07+0.04,
                     ],
                     [
                         0.005,
                         -0.06,
-                        0.078+0.02,
+                        0.07+0.04,
                     ],
                 ]
             ).to(torch.float)
@@ -736,8 +736,8 @@ def filter_collisions(trans,pc=None):
     collisions_aux_16 = []
     gripper_points_sim_aux16 = (gripper_points_sim[:,1]+gripper_points_sim[:,6])/2.0
     gripper_points_sim_aux35 = (gripper_points_sim[:,3]+gripper_points_sim[:,5])/2.0
-    print("gripper_points_sim_aux",gripper_points_sim_aux16.shape)
-    print("gripper_points_sim_aux",gripper_points_sim_aux35.shape)
+    #print("gripper_points_sim_aux",gripper_points_sim_aux16.shape)
+    #print("gripper_points_sim_aux",gripper_points_sim_aux35.shape)
     if pc is not None:
         pcd_tree = o3d.geometry.KDTreeFlann(pc)
         # not catching if a line goes through the pc -> add intermediate point
@@ -773,13 +773,13 @@ def filter_collisions(trans,pc=None):
     #color = (1, 0.70, 0)
     #pc.paint_uniform_color(color)
     #vis.add_geometry(pc)
-
+##
     #trans_filtered = trans[~collisions]
     #print("trans_filtered",trans_filtered.shape)
     #gripper_points_filtered = gripper_points_sim[~collisions]
     #for g in gripper_points_filtered:
-        #lines_g = draw_gripper(g.cpu().numpy())
-        #vis.add_geometry(lines_g)
+    #    lines_g = draw_gripper(g.cpu().numpy())
+    #    vis.add_geometry(lines_g)
     #vis.run()
     
     return collisions
